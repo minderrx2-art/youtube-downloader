@@ -1,7 +1,7 @@
 package src
 
 import (
-	"fmt"
+	"context"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -9,46 +9,49 @@ import (
 	"sync"
 )
 
-type FilteredWriter struct {
-	patterns []*regexp.Regexp
-}
-
-func RunYTDLPSequential(ytdlp *YTDLP, urls []string) error {
-	args, err := getArgs(urls)
-	if err != nil {
-		return err
-	}
-	if err := runYTDLP(ytdlp.FilePath, args...); err != nil {
-		return err
-	}
-	// How do I do I summarise this output without it being as verbose ???
-	return nil
-}
-
-// Buffered channel with 5 slots,
-// Adds 1 and blocks when channel is full,
-// Evicts from channel.
 func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string) error {
 	var wg sync.WaitGroup
 	args, err := getArgs(urls)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	if err != nil {
 		return err
 	}
-	semaphore := make(chan bool, 5)
-	for _, ytUrl := range args[2:] {
+
+	semaphore := make(chan struct{}, 5)
+	errors := make(chan error, 1)
+
+	ytUrls := args[2:]
+
+	renderer := NewRenderer(len(ytUrls) % 5)
+
+	for i := 0; i < len(ytUrls) && i < 5; i++ {
+		println(i)
+	}
+
+	for i, ytUrl := range ytUrls {
 		wg.Add(1)
-		semaphore <- true
-		go func(s string) {
+		slot := i % 5
+		go func(slot int, s string) {
 			defer wg.Done()
+			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			if err := runYTDLP(ytdlp.FilePath, args[0], args[1], s); err != nil {
-				// How do I handle concurrent errors??
-				// I can't return them watafak??
+			if err := download(ctx, slot, renderer, ytdlp.FilePath, args[0], args[1], s); err != nil {
+
 			}
-		}(ytUrl)
+		}(slot, ytUrl)
 	}
 	wg.Wait()
-	return nil
+
+	// Basically unique channel only way to handle incoming events
+	select {
+	case err := <-errors:
+		return err
+	default:
+		return nil
+	}
 }
 
 func getArgs(urls []string) ([]string, error) {
@@ -64,47 +67,34 @@ func getArgs(urls []string) ([]string, error) {
 	return args, nil
 }
 
-func getVideoTitle(ydlpPath string, url string) (string, error) {
-	cmd := exec.Command(ydlpPath, "--get-title", url)
-	output, err := cmd.Output()
+func getTitle(ctx context.Context, bin, url string) (string, error) {
+	cmd := ytdlpCmd(ctx, bin, "--get-title", url)
+
+	out, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(output)), nil
+
+	return strings.TrimSpace(string(out)), nil
 }
 
-func runYTDLP(ydlpPath string, args ...string) error {
-	if len(args) < 3 {
-		return fmt.Errorf("URL was not given to YTDLP")
-	}
-	cmd := exec.Command(
-		ydlpPath,
-		args...,
-	)
-	handleOutput(cmd)
-	return cmd.Run()
-}
+func download(ctx context.Context, slot int, renderer *MutexProgressRender, bin string, args ...string) error {
+	cmd := ytdlpCmd(ctx, bin, args...)
 
-// cmd.Stdout automatically calls .Write()
-func (fw *FilteredWriter) Write(p []byte) (n int, err error) {
-	line := string(p)
-
-	for _, pattern := range fw.patterns {
-		if pattern.MatchString(line) {
-			fmt.Print(line)
-			break
-		}
-	}
-	return len(p), nil
-}
-
-func handleOutput(stdo *exec.Cmd) {
 	filtered := &FilteredWriter{
+		line:     slot,
+		renderer: renderer,
 		patterns: []*regexp.Regexp{
 			regexp.MustCompile(`\d+%`),
 		},
 	}
 
-	stdo.Stdout = filtered
-	stdo.Stderr = filtered
+	cmd.Stdout = filtered
+	cmd.Stderr = filtered
+
+	return cmd.Run()
+}
+
+func ytdlpCmd(ctx context.Context, bin string, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, bin, args...)
 }

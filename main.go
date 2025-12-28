@@ -37,17 +37,11 @@ func main() {
 		return
 	}
 
-	concurr := flag.Bool("c", false, "Use concurrent downloading?")
+	// concurr := flag.Bool("c", false, "Use concurrent downloading?")
 	flag.Parse()
-	if *concurr {
-		if err := src.RunYTDLPConcurrent(ytdlp, urls); err != nil {
-			fmt.Println(err)
-			return
-		}
-	} else {
-		if err := src.RunYTDLPSequential(ytdlp, urls); err != nil {
-			fmt.Println(err)
-			return
-		}
+
+	if err := src.RunYTDLPConcurrent(ytdlp, urls); err != nil {
+		fmt.Println(err)
+		return
 	}
 }
