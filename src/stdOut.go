@@ -3,11 +3,13 @@ package src
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 )
 
 type FilteredWriter struct {
-	line     int
+	file     string
+	slot     int
 	renderer *MutexProgressRender
 	patterns []*regexp.Regexp
 }
@@ -19,38 +21,55 @@ type MutexProgressRender struct {
 
 // cmd.Stdout automatically calls .Write()
 func (fw *FilteredWriter) Write(p []byte) (int, error) {
-	line := string(p)
+	text := string(p)
 
 	for _, re := range fw.patterns {
-		if re.MatchString(line) {
-			fw.renderer.Update(fw.line, line)
+		if re.MatchString(text) {
+			fw.renderer.Update(&fw.slot, text, fw.file)
 			break
 		}
 	}
 	return len(p), nil
 }
 
-func NewRenderer(lines int) *MutexProgressRender {
-	// No remainder = need all lines
-	if lines == 0 {
-		lines = 5
+func NewFilteredWriter(file string, slot int, renderer *MutexProgressRender) *FilteredWriter {
+	r := []rune(file)
+	if len(r) > 60 {
+		file = string(r[:60])
+		file = file + "..."
 	}
-	return &MutexProgressRender{lines: lines}
+	return &FilteredWriter{
+		file:     file,
+		slot:     slot,
+		renderer: renderer,
+		patterns: []*regexp.Regexp{
+			regexp.MustCompile(`\d+%`),
+		},
+	}
 }
 
-func (r *MutexProgressRender) Update(line int, s string) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+func NewRenderer() *MutexProgressRender {
+	return &MutexProgressRender{lines: 0}
+}
 
-	// move cursor up from bottom
-	up := r.lines - line
+func (mpr *MutexProgressRender) Update(line *int, s string, file string) {
+	// mutex.Lock = Only one go routine can touch this at a time.
+	mpr.mutex.Lock()
+	defer mpr.mutex.Unlock()
+
+	if *line == -1 {
+		fmt.Println()
+		*line = mpr.lines
+		mpr.lines++
+	}
+
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\n", "")
+
+	up := mpr.lines - *line
 	fmt.Printf("\033[%dA", up)
-
-	// clear line and print
 	fmt.Print("\r\033[2K")
-	fmt.Print(s)
-
-	// move cursor back down
+	fmt.Printf("%s\t%s", file, s)
 	fmt.Printf("\r\033[%dB", up)
 }
 
