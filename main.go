@@ -37,10 +37,10 @@ func main() {
 		return
 	}
 
-	// concurr := flag.Bool("c", false, "Use concurrent downloading?")
+	con := flag.Int("c", 3, "How many concurrent downloads allowed?")
 	flag.Parse()
 
-	if err := src.RunYTDLPConcurrent(ytdlp, urls); err != nil {
+	if err := src.RunYTDLPConcurrent(ytdlp, urls, *con); err != nil {
 		fmt.Println(err)
 		return
 	}
