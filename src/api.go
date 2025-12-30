@@ -4,14 +4,27 @@ import (
 	"context"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 )
 
-func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string) error {
+type Worker struct {
+	ctx       context.Context
+	wg        *sync.WaitGroup
+	renderer  *MutexProgressRender
+	semaphore chan struct{}
+}
+
+type Video struct {
+	bin  string
+	name string
+	url  string
+	slot int
+}
+
+func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, maxCon int) error {
 	var wg sync.WaitGroup
-	args, err := getArgs(urls)
+	args, err := formatArgs()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -20,41 +33,54 @@ func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string) error {
 		return err
 	}
 
-	semaphore := make(chan struct{}, 5)
-	errors := make(chan error, 1)
+	renderer := NewRenderer()
+	videoMap := make(map[string]*Video)
 
-	ytUrls := args[2:]
-
-	renderer := NewRenderer(len(ytUrls) % 5)
-
-	for i := 0; i < len(ytUrls) && i < 5; i++ {
-		println(i)
+	for _, ytUrl := range urls {
+		title, err := getTitle(ctx, ytdlp.FilePath, ytUrl)
+		if err != nil {
+			continue
+		}
+		if _, ok := videoMap[title]; !ok {
+			videoMap[title] = &Video{
+				bin:  ytdlp.FilePath,
+				name: title,
+				url:  ytUrl,
+				slot: -1,
+			}
+		}
 	}
 
-	for i, ytUrl := range ytUrls {
-		wg.Add(1)
-		slot := i % 5
-		go func(slot int, s string) {
-			defer wg.Done()
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-			if err := download(ctx, slot, renderer, ytdlp.FilePath, args[0], args[1], s); err != nil {
+	semaphore := make(chan struct{}, maxCon)
 
-			}
-		}(slot, ytUrl)
+	for _, video := range videoMap {
+		wg.Add(1)
+		worker := newWorker(ctx, &wg, semaphore, renderer)
+		go worker.start(video, args...)
 	}
 	wg.Wait()
+	return err
+}
 
-	// Basically unique channel only way to handle incoming events
-	select {
-	case err := <-errors:
-		return err
-	default:
-		return nil
+func newWorker(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, renderer *MutexProgressRender) *Worker {
+	return &Worker{
+		ctx:       ctx,
+		wg:        wg,
+		semaphore: sem,
+		renderer:  renderer,
 	}
 }
 
-func getArgs(urls []string) ([]string, error) {
+func (worker *Worker) start(video *Video, args ...string) {
+	defer worker.wg.Done()
+	worker.semaphore <- struct{}{}
+	defer func() { <-worker.semaphore }()
+	if err := download(worker.ctx, worker.renderer, video, args...); err != nil {
+
+	}
+}
+
+func formatArgs() ([]string, error) {
 	downloadsPath, err := getDownloadsDir()
 	if err != nil {
 		return nil, err
@@ -62,8 +88,9 @@ func getArgs(urls []string) ([]string, error) {
 	args := []string{
 		"-o",
 		filepath.Join(downloadsPath, "%(title)s.%(ext)s"),
+		"--progress-template",
+		"%(progress._percent_str)s",
 	}
-	args = append(args, urls...)
 	return args, nil
 }
 
@@ -78,17 +105,14 @@ func getTitle(ctx context.Context, bin, url string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func download(ctx context.Context, slot int, renderer *MutexProgressRender, bin string, args ...string) error {
-	cmd := ytdlpCmd(ctx, bin, args...)
-
-	filtered := &FilteredWriter{
-		line:     slot,
-		renderer: renderer,
-		patterns: []*regexp.Regexp{
-			regexp.MustCompile(`\d+%`),
-		},
-	}
-
+func download(ctx context.Context, renderer *MutexProgressRender, video *Video, args ...string) error {
+	args = append(args, video.url)
+	cmd := ytdlpCmd(ctx, video.bin, args...)
+	filtered := NewFilteredWriter(
+		video.name,
+		video.slot,
+		renderer,
+	)
 	cmd.Stdout = filtered
 	cmd.Stderr = filtered
 
