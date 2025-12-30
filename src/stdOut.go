@@ -35,21 +35,21 @@ func (fw *FilteredWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// If filename is over width trims it byte by byte, otherwise pads it
-func padOrTrim(s string, width int) string {
-	if runewidth.StringWidth(s) > width {
-		for runewidth.StringWidth(s+"…") > width {
-			s = s[:len(s)-1]
-		}
-		return s + "…"
-	}
-	return s + strings.Repeat(" ", width-runewidth.StringWidth(s))
-}
-
-func NewFilteredWriter(file string, slot int, renderer *MutexProgressRender) *FilteredWriter {
+func NewFilteredWriter(rawFile string, slot int, renderer *MutexProgressRender) *FilteredWriter {
 	lineWidth := 45
+
+	file := func(str string, width int) string {
+		if runewidth.StringWidth(str) > width {
+			for runewidth.StringWidth(str+"…") > width {
+				str = str[:len(str)-1]
+			}
+			return str + "…"
+		}
+		return str + strings.Repeat(" ", width-runewidth.StringWidth(str))
+	}(rawFile, lineWidth)
+
 	return &FilteredWriter{
-		file:     padOrTrim(file, lineWidth),
+		file:     file,
 		slot:     slot,
 		renderer: renderer,
 		patterns: []*regexp.Regexp{
@@ -85,5 +85,3 @@ func (mpr *MutexProgressRender) Update(line *int, s string, file string) {
 	fmt.Printf("%-*s %s", mpr.width, file, s)
 	fmt.Printf("\r\033[%dB", up)
 }
-
-// Need to inject custom text for example if download fails
