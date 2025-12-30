@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/mattn/go-runewidth"
 )
 
 type FilteredWriter struct {
@@ -17,6 +19,7 @@ type FilteredWriter struct {
 type MutexProgressRender struct {
 	mutex sync.Mutex
 	lines int
+	width int
 }
 
 // cmd.Stdout automatically calls .Write()
@@ -32,14 +35,21 @@ func (fw *FilteredWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func NewFilteredWriter(file string, slot int, renderer *MutexProgressRender) *FilteredWriter {
-	r := []rune(file)
-	if len(r) > 60 {
-		file = string(r[:60])
-		file = file + "..."
+// If filename is over width trims it byte by byte, otherwise pads it
+func padOrTrim(s string, width int) string {
+	if runewidth.StringWidth(s) > width {
+		for runewidth.StringWidth(s+"…") > width {
+			s = s[:len(s)-1]
+		}
+		return s + "…"
 	}
+	return s + strings.Repeat(" ", width-runewidth.StringWidth(s))
+}
+
+func NewFilteredWriter(file string, slot int, renderer *MutexProgressRender) *FilteredWriter {
+	lineWidth := 45
 	return &FilteredWriter{
-		file:     file,
+		file:     padOrTrim(file, lineWidth),
 		slot:     slot,
 		renderer: renderer,
 		patterns: []*regexp.Regexp{
@@ -49,7 +59,10 @@ func NewFilteredWriter(file string, slot int, renderer *MutexProgressRender) *Fi
 }
 
 func NewRenderer() *MutexProgressRender {
-	return &MutexProgressRender{lines: 0}
+	return &MutexProgressRender{
+		lines: 0,
+		width: 45,
+	}
 }
 
 func (mpr *MutexProgressRender) Update(line *int, s string, file string) {
@@ -69,7 +82,7 @@ func (mpr *MutexProgressRender) Update(line *int, s string, file string) {
 	up := mpr.lines - *line
 	fmt.Printf("\033[%dA", up)
 	fmt.Print("\r\033[2K")
-	fmt.Printf("%s\t%s", file, s)
+	fmt.Printf("%-*s %s", mpr.width, file, s)
 	fmt.Printf("\r\033[%dB", up)
 }
 
