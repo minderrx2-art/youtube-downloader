@@ -54,6 +54,7 @@ func NewFilteredWriter(rawFile string, slot int, renderer *MutexProgressRender) 
 		renderer: renderer,
 		patterns: []*regexp.Regexp{
 			regexp.MustCompile(`\d+%`),
+			regexp.MustCompile(`(?i)sleeping`),
 		},
 	}
 }
