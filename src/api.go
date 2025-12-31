@@ -22,36 +22,47 @@ type Video struct {
 	slot int
 }
 
+type TitleResult struct {
+	url   string
+	title string
+}
+
 func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, maxCon int) error {
 	var wg sync.WaitGroup
-	args, err := formatArgs()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err != nil {
-		return err
+	titleChan := make(chan TitleResult, maxCon)
+	for _, url := range urls {
+		go getTitle(ctx, ytdlp.FilePath, url, titleChan)
 	}
-
-	renderer := NewRenderer()
 	videoMap := make(map[string]*Video)
 
-	for _, ytUrl := range urls {
-		title, err := getTitle(ctx, ytdlp.FilePath, ytUrl)
-		if err != nil {
+	for range urls {
+		titleResult := <-titleChan
+
+		if titleResult.title == "" {
 			continue
 		}
-		if _, ok := videoMap[title]; !ok {
-			videoMap[title] = &Video{
+
+		if _, ok := videoMap[titleResult.title]; !ok {
+			videoMap[titleResult.title] = &Video{
 				bin:  ytdlp.FilePath,
-				name: title,
-				url:  ytUrl,
+				name: titleResult.title,
+				url:  titleResult.url,
 				slot: -1,
 			}
 		}
 	}
 
+	renderer := NewRenderer()
 	semaphore := make(chan struct{}, maxCon)
+	args, err := formatArgs()
+
+	if err != nil {
+		return err
+	}
 
 	for _, video := range videoMap {
 		wg.Add(1)
@@ -94,15 +105,18 @@ func formatArgs() ([]string, error) {
 	return args, nil
 }
 
-func getTitle(ctx context.Context, bin, url string) (string, error) {
+func getTitle(ctx context.Context, bin, url string, titleChan chan<- TitleResult) {
 	cmd := ytdlpCmd(ctx, bin, "--get-title", url)
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", err
+		titleChan <- TitleResult{}
 	}
 
-	return strings.TrimSpace(string(out)), nil
+	titleChan <- TitleResult{
+		title: strings.TrimSpace(string(out)),
+		url:   url,
+	}
 }
 
 func download(ctx context.Context, renderer *MutexProgressRender, video *Video, args ...string) error {
