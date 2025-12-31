@@ -2,24 +2,35 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"ytDownloader/src"
 )
 
-// Find a way to provide custom console log output
-// Like
-// ## 0/4 downloaded
+// Here be flags
+type Config struct {
+	c int
+	u string
+}
 
-// Find a way to concurrently download them all at the same time
-// clean up temp files after CTRL-C
-// Check if files already exist in Downloads
+// Bro why not IDK download the yt-dlp on binary run ?? Saves space and up to date ytdlp
+// Fix no stdin given because it deadlocks
+
+func parseConfig() Config {
+	cfg := Config{}
+
+	flag.IntVar(&cfg.c, "c", 3, "How many concurrent downloads allowed?")
+	flag.StringVar(&cfg.u, "u", "", "Urls to download")
+
+	flag.Parse()
+	return cfg
+}
+
 func main() {
-	urls, err := src.ReadStdin()
+	cfg := parseConfig()
 	ytdlp, err := src.SetupYTDLP()
-
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
@@ -33,15 +44,21 @@ func main() {
 	defer os.RemoveAll(ytdlp.DirPath)
 
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 
-	con := flag.Int("c", 3, "How many concurrent downloads allowed?")
-	flag.Parse()
+	var urls []string
 
-	if err := src.RunYTDLPConcurrent(ytdlp, urls, *con); err != nil {
-		fmt.Println(err)
+	if cfg.u != "" {
+		urls = strings.Split(cfg.u, " ")
+	} else {
+		urls, err = src.ReadStdin()
+		if err != nil {
+			return
+		}
+	}
+
+	if err := src.RunYTDLPConcurrent(ytdlp, urls, cfg.c); err != nil {
 		return
 	}
 }
