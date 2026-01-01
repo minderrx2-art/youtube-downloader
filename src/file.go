@@ -16,7 +16,6 @@ type YTDLP struct {
 //go:embed bin/yt-dlp
 var ytDLPBin []byte
 
-// Saves binary to temporary directory and returns the binary path, and path to temp dir
 func SetupYTDLP() (*YTDLP, error) {
 	tempDir, err := os.MkdirTemp("", "ytdownloader-*")
 	if err != nil {
@@ -50,7 +49,8 @@ func getLinuxDirectory(home string) (string, error) {
 	downDir := path.Join(home, "Downloads")
 	// Poke to check existance
 	info, err := os.Stat(downDir)
-	if info.IsDir() && err == nil {
+
+	if err == nil && info.IsDir() {
 		return downDir, nil
 	}
 	// Make new Dir if ~/Downloads don't exist
