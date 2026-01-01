@@ -1,16 +1,40 @@
 # youtube-downloader
 
-Concurrent youtube video downloader using [yt-](https://github.com/yt-dlp/yt-dlp)
+A concurrent YouTube video downloader written in Go using
+[yt-dlp](https://github.com/yt-dlp/yt-dlp) under the hood.
 
-Compile with
+## Features
+
+- Concurrent video downloads
+- Supports input via **stdin** or **manual URL**
+- Configurable concurrency level
+- Simple CLI interface
+
+## Requirements
+
+- Go (for building)
+
+## Build
+
+```bash
 go build .
+```
 
-Run via stdin:
-cat my_url_file.txt | ytDownloader
+## Usage
+Download from a file (stdin)
+```bash
+cat my_url_file.txt | ./ytDownloader
+```
+Download with URL manually
+```bash
+./ytDownloader -u https://youtube.com/url/here
+```
+Set concurrency level
+```bash
+./ytDownloader -c 5
+```
 
-Run via manual url input
-./ytDownloader -u youtube/url/here
-
-Supported Flags
--u = manual URL input.
--c = number of concurrent downloads allowed, default = 3
+| Flag | Description                                   |
+| ---: | --------------------------------------------- |
+| `-u` | Manual URL input                              |
+| `-c` | Number of concurrent downloads (default: `3`) |
