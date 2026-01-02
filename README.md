@@ -1,6 +1,6 @@
 # youtube-downloader
 
-A concurrent YouTube video downloader written in Go using
+My attempt to learn GOlang, concurrent YouTube video downloader written in Go using
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) under the hood.
 
 ## Features
