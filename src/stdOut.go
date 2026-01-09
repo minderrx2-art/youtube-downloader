@@ -86,3 +86,7 @@ func (mpr *MutexProgressRender) Update(line *int, s string, file string) {
 	fmt.Printf("%-*s %s", mpr.width, file, s)
 	fmt.Printf("\r\033[%dB", up)
 }
+
+func warn(text string) {
+	fmt.Printf("WARNING: %s", text)
+}
