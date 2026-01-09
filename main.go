@@ -15,9 +15,6 @@ type Config struct {
 	u string
 }
 
-// Bro why not IDK download the yt-dlp on binary run ?? Saves space and up to date ytdlp
-// Fix no stdin given because it deadlocks
-
 func parseConfig() Config {
 	cfg := Config{}
 

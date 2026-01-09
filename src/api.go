@@ -41,8 +41,8 @@ func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, maxCon int) error {
 
 	for range urls {
 		titleResult := <-titleChan
-
 		if titleResult.title == "" {
+			warn("Skipping Invalid URL " + titleResult.url)
 			continue
 		}
 
@@ -110,7 +110,10 @@ func getTitle(ctx context.Context, bin, url string, titleChan chan<- TitleResult
 
 	out, err := cmd.Output()
 	if err != nil {
-		titleChan <- TitleResult{}
+		titleChan <- TitleResult{
+			url: url,
+		}
+		return
 	}
 
 	titleChan <- TitleResult{
