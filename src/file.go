@@ -1,10 +1,11 @@
 package src
 
 import (
-	_ "embed"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 )
 
@@ -13,19 +14,42 @@ type YTDLP struct {
 	DirPath  string
 }
 
-//go:embed bin/yt-dlp
-var ytDLPBin []byte
-
 func SetupYTDLP() (*YTDLP, error) {
 	tempDir, err := os.MkdirTemp("", "ytdownloader-*")
 	if err != nil {
 		return nil, err
 	}
-	filePath := path.Join(tempDir, "yt-dlp")
-	if err := os.WriteFile(filePath, ytDLPBin, 0755); err != nil {
-		return nil, err
+	filePath := filepath.Join(tempDir, "yt-dlp")
+	err = downloadYTDLP(filePath)
+	if err != nil {
+		panic(err)
 	}
 	return &YTDLP{FilePath: filePath, DirPath: tempDir}, nil
+}
+
+func downloadYTDLP(fileName string) error {
+	downloadURL := "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+	res, err := http.Get(downloadURL)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", res.Status)
+	}
+	file, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = io.Copy(file, res.Body)
+	if err != nil {
+		return err
+	}
+	if err := os.Chmod(fileName, 0755); err != nil {
+		return err
+	}
+	return nil
 }
 
 func getDownloadsDir() (string, error) {
@@ -37,16 +61,16 @@ func getDownloadsDir() (string, error) {
 	case "linux":
 		return getLinuxDirectory(home)
 	case "darwin":
-		return path.Join(home, "Downloads"), nil
+		return filepath.Join(home, "Downloads"), nil
 	case "windows":
-		return path.Join(home, "Downloads"), nil
+		return filepath.Join(home, "Downloads"), nil
 	default:
 		return "", fmt.Errorf("Unsupported OS")
 	}
 }
 
 func getLinuxDirectory(home string) (string, error) {
-	downDir := path.Join(home, "Downloads")
+	downDir := filepath.Join(home, "Downloads")
 	// Poke to check existance
 	info, err := os.Stat(downDir)
 
@@ -54,9 +78,9 @@ func getLinuxDirectory(home string) (string, error) {
 		return downDir, nil
 	}
 	// Make new Dir if ~/Downloads don't exist
-	err = os.Mkdir(path.Join(home, "ytDownloader"), 0755)
+	err = os.Mkdir(filepath.Join(home, "ytDownloader"), 0755)
 	if err != nil {
 		return "", err
 	}
-	return path.Join(home, "ytDownloader"), nil
+	return filepath.Join(home, "ytDownloader"), nil
 }
