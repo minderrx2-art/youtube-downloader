@@ -2,6 +2,8 @@ package internal
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -58,7 +60,7 @@ func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, cfg Config) error {
 
 	renderer := NewRenderer()
 	semaphore := make(chan struct{}, cfg.Concurrency)
-	args, err := formatArgs()
+	args, err := formatArgs(cfg.Directory)
 
 	if err != nil {
 		return err
@@ -91,14 +93,25 @@ func (worker *Worker) start(video *Video, args ...string) {
 	}
 }
 
-func formatArgs() ([]string, error) {
-	downloadsPath, err := getDownloadsDir()
-	if err != nil {
-		return nil, err
+func formatArgs(downPath string) ([]string, error) {
+	if downPath == "" {
+		defaultPath, err := getDownloadsDir()
+		if err != nil {
+			return nil, err
+		}
+		downPath = defaultPath
+	} else {
+		info, err := os.Stat(downPath)
+		if err != nil {
+			return nil, err
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf("directory is not a directory")
+		}
 	}
 	args := []string{
 		"-o",
-		filepath.Join(downloadsPath, "%(title)s.%(ext)s"),
+		filepath.Join(downPath, "%(title)s.%(ext)s"),
 		"--progress-template",
 		"%(progress._percent_str)s",
 	}
