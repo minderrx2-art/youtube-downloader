@@ -11,7 +11,7 @@ My attempt to learn GOlang, concurrent YouTube video downloader written in Go us
 
 ## Requirements
 
-- Go (for building)
+- optional Go (for building)
 
 ## Build
 
