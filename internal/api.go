@@ -1,4 +1,4 @@
-package src
+package internal
 
 import (
 	"context"
@@ -27,13 +27,13 @@ type TitleResult struct {
 	title string
 }
 
-func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, maxCon int) error {
+func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, cfg Config) error {
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	titleChan := make(chan TitleResult, maxCon)
+	titleChan := make(chan TitleResult, cfg.Concurrency)
 	for _, url := range urls {
 		go getTitle(ctx, ytdlp.FilePath, url, titleChan)
 	}
@@ -57,7 +57,7 @@ func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, maxCon int) error {
 	}
 
 	renderer := NewRenderer()
-	semaphore := make(chan struct{}, maxCon)
+	semaphore := make(chan struct{}, cfg.Concurrency)
 	args, err := formatArgs()
 
 	if err != nil {

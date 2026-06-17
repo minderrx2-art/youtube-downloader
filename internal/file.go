@@ -1,4 +1,4 @@
-package src
+package internal
 
 import (
 	"fmt"
@@ -30,6 +30,7 @@ func SetupYTDLP() (*YTDLP, error) {
 func downloadYTDLP(fileName string) error {
 	downloadURL := "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
 	res, err := http.Get(downloadURL)
+	fmt.Println("Downloading YTDLP ...")
 	if err != nil {
 		return err
 	}

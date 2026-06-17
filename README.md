@@ -17,7 +17,7 @@ My attempt to learn GOlang, concurrent YouTube video downloader written in Go us
 ## Build
 
 ```bash
-go build .
+go build -o ytDownloader ./cmd/ytdownloader
 ```
 
 ## Usage
@@ -38,3 +38,4 @@ Set concurrency level
 | ---: | --------------------------------------------- |
 | `-u` | Manual URL input                              |
 | `-c` | Number of concurrent downloads (default: `3`) |
+| `-d` | Download directory (default )                            |
