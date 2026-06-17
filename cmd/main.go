@@ -6,7 +6,7 @@ import (
 	"strings"
 	"syscall"
 
-	"ytDownloader/internal"
+	"ytgo/internal"
 )
 
 func main() {

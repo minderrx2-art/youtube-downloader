@@ -1,4 +1,4 @@
-module ytDownloader
+module ytgo
 
 go 1.25.5
 

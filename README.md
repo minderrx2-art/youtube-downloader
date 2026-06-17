@@ -17,21 +17,21 @@ My attempt to learn GOlang, concurrent YouTube video downloader written in Go us
 ## Build
 
 ```bash
-go build -o ytDownloader ./cmd/ytdownloader
+go build -o ytgo ./cmd
 ```
 
 ## Usage
 Download from a file (stdin)
 ```bash
-cat my_url_file.txt | ./ytDownloader
+cat my_url_file.txt | ./ytgo
 ```
 Download with URL manually
 ```bash
-./ytDownloader -u https://youtube.com/url/here
+./ytgo -u https://youtube.com/url/here
 ```
 Set concurrency level
 ```bash
-./ytDownloader -c 5
+./ytgo -c 5
 ```
 
 | Flag | Description                                   |
