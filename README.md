@@ -6,7 +6,6 @@ My attempt to learn GOlang, concurrent YouTube video downloader written in Go us
 ## Features
 
 - Concurrent video downloads
-- Supports input via **stdin** or **manual URL**
 - Configurable concurrency level
 - Simple CLI interface
 
@@ -21,21 +20,10 @@ go build -o ytgo ./cmd
 ```
 
 ## Usage
-Download from a file (stdin)
-```bash
-cat my_url_file.txt | ./ytgo
-```
-Download with URL manually
-```bash
-./ytgo -u https://youtube.com/url/here
-```
-Set concurrency level
-```bash
-./ytgo -c 5
-```
+<img width="544" height="203" alt="image" src="https://github.com/user-attachments/assets/ad3127df-b9b2-4641-98c4-67de35deb45b" />
 
-| Flag | Description                                   |
-| ---: | --------------------------------------------- |
-| `-u` | Manual URL input                              |
-| `-c` | Number of concurrent downloads (default: `3`) |
-| `-d` | Download directory (default )                            |
+| Flag | Description                                                     |
+| ---: | ---------------------------------------------                   |
+| `Urls to download` | Manual URL input                                  |
+| `Concurrency level` | Number of concurrent downloads (default: `1`)    |
+| `Default directory` | Download directory (default )                    |
