@@ -60,7 +60,7 @@ func TestGetLinuxDirectory_CreatesFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := path.Join(home, "ytDownloader")
+	want := path.Join(home, "ytgo")
 	if dir != want {
 		t.Fatalf("got %q, want %q", dir, want)
 	}
