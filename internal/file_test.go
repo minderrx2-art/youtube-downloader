@@ -13,9 +13,6 @@ func TestSetupYTDLP_CreatesExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// cleanup
-	defer os.RemoveAll(ytdlp.DirPath)
-
 	if ytdlp.FilePath == "" {
 		t.Fatal("FilePath is empty")
 	}

@@ -1,6 +1,10 @@
 package internal
 
-import "flag"
+import (
+	"strconv"
+
+	"github.com/charmbracelet/huh"
+)
 
 type Config struct {
 	Concurrency int
@@ -8,13 +12,42 @@ type Config struct {
 	Directory   string
 }
 
-func ParseConfig() Config {
-	cfg := Config{}
+func PromptConfig() (Config, error) {
+	defaultDir, err := getDownloadsDir()
 
-	flag.IntVar(&cfg.Concurrency, "c", 3, "How many concurrent downloads allowed?")
-	flag.StringVar(&cfg.Urls, "u", "", "Urls to download")
-	flag.StringVar(&cfg.Directory, "d", "", "Directory to download to (default: Downloads directory)")
+	cfg := Config{
+		Concurrency: 1,
+		Directory:   defaultDir,
+	}
 
-	flag.Parse()
-	return cfg
+	concurrency := strconv.Itoa(cfg.Concurrency)
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Concurrency").
+				Value(&concurrency),
+
+			huh.NewInput().
+				Title("URLs (space separated)").
+				Value(&cfg.Urls),
+
+			huh.NewInput().
+				Title("Download Directory").
+				Value(&cfg.Directory),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return Config{}, err
+	}
+
+	n, err := strconv.Atoi(concurrency)
+	if err != nil {
+		n = 3
+	}
+
+	cfg.Concurrency = n
+
+	return cfg, nil
 }
