@@ -15,7 +15,7 @@ type YTDLP struct {
 }
 
 func SetupYTDLP() (*YTDLP, error) {
-	tempDir, err := os.MkdirTemp("", "ytdownloader-*")
+	tempDir, err := os.MkdirTemp("", "ytgo-*")
 	if err != nil {
 		return nil, err
 	}
@@ -79,9 +79,9 @@ func getLinuxDirectory(home string) (string, error) {
 		return downDir, nil
 	}
 	// Make new Dir if ~/Downloads don't exist
-	err = os.Mkdir(filepath.Join(home, "ytDownloader"), 0755)
+	err = os.Mkdir(filepath.Join(home, "ytgo"), 0755)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, "ytDownloader"), nil
+	return filepath.Join(home, "ytgo"), nil
 }
