@@ -9,9 +9,31 @@ import (
 	"ytgo/internal"
 )
 
+type Setup_Result struct {
+	Result *internal.YTDLP
+	Err    error
+}
+
 func main() {
-	cfg := internal.ParseConfig()
-	ytdlp, err := internal.SetupYTDLP()
+
+	setupChan := make(chan Setup_Result, 1)
+
+	go func() {
+		ytdlp, err := internal.SetupYTDLP()
+
+		setupChan <- Setup_Result{
+			Result: ytdlp,
+			Err:    err,
+		}
+	}()
+
+	setup := <-setupChan
+	ytdlp, err := setup.Result, setup.Err
+
+	cfg, err := internal.PromptConfig()
+	if err != nil {
+		return
+	}
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 

@@ -14,6 +14,11 @@ type YTDLP struct {
 	DirPath  string
 }
 
+type ytdlpResult struct {
+	Result *YTDLP
+	Err    error
+}
+
 func SetupYTDLP() (*YTDLP, error) {
 	tempDir, err := os.MkdirTemp("", "ytgo-*")
 	if err != nil {
@@ -22,7 +27,7 @@ func SetupYTDLP() (*YTDLP, error) {
 	filePath := filepath.Join(tempDir, "yt-dlp")
 	err = downloadYTDLP(filePath)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	return &YTDLP{FilePath: filePath, DirPath: tempDir}, nil
 }
@@ -30,7 +35,6 @@ func SetupYTDLP() (*YTDLP, error) {
 func downloadYTDLP(fileName string) error {
 	downloadURL := "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
 	res, err := http.Get(downloadURL)
-	fmt.Println("Downloading YTDLP ...")
 	if err != nil {
 		return err
 	}
