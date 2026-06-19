@@ -7,6 +7,8 @@ import (
 	"syscall"
 
 	"ytgo/internal"
+
+	"github.com/charmbracelet/huh/spinner"
 )
 
 type Setup_Result struct {
@@ -18,14 +20,20 @@ func main() {
 
 	setupChan := make(chan Setup_Result, 1)
 
-	go func() {
-		ytdlp, err := internal.SetupYTDLP()
+	err := spinner.New().
+		Title("Downloading video...").
+		Action(func() {
+			ytdlp, err := internal.SetupYTDLP()
+			setupChan <- Setup_Result{
+				Result: ytdlp,
+				Err:    err,
+			}
+		}).
+		Run()
 
-		setupChan <- Setup_Result{
-			Result: ytdlp,
-			Err:    err,
-		}
-	}()
+	if err != nil {
+		panic("Can't set up YTDLP")
+	}
 
 	setup := <-setupChan
 	ytdlp, err := setup.Result, setup.Err
