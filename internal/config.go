@@ -43,6 +43,7 @@ func PromptConfig() (Config, error) {
 	}
 
 	n, err := strconv.Atoi(concurrency)
+
 	if err != nil {
 		n = 3
 	}

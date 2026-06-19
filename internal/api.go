@@ -3,17 +3,20 @@ package internal
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type Worker struct {
 	ctx       context.Context
 	wg        *sync.WaitGroup
-	renderer  *MutexProgressRender
 	semaphore chan struct{}
 }
 
@@ -30,6 +33,8 @@ type TitleResult struct {
 }
 
 func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, cfg Config) error {
+
+	// p.Send("")
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -44,7 +49,6 @@ func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, cfg Config) error {
 	for range urls {
 		titleResult := <-titleChan
 		if titleResult.title == "" {
-			warn("Skipping Invalid URL " + titleResult.url)
 			continue
 		}
 
@@ -53,42 +57,46 @@ func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, cfg Config) error {
 				bin:  ytdlp.FilePath,
 				name: titleResult.title,
 				url:  titleResult.url,
-				slot: -1,
+				slot: 0,
 			}
 		}
 	}
 
-	renderer := NewRenderer()
 	semaphore := make(chan struct{}, cfg.Concurrency)
 	args, err := formatArgs(cfg.Directory)
 
 	if err != nil {
 		return err
 	}
+	titles := slices.Collect(maps.Keys(videoMap))
+
+	p := tea.NewProgram(NewOutput(titles, len(titles)))
+	_, err = p.Run()
 
 	for _, video := range videoMap {
 		wg.Add(1)
-		worker := newWorker(ctx, &wg, semaphore, renderer)
+		worker := newWorker(ctx, &wg, semaphore)
 		go worker.start(video, args...)
 	}
 	wg.Wait()
 	return err
 }
 
-func newWorker(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, renderer *MutexProgressRender) *Worker {
+func newWorker(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}) *Worker {
 	return &Worker{
 		ctx:       ctx,
 		wg:        wg,
 		semaphore: sem,
-		renderer:  renderer,
 	}
 }
 
 func (worker *Worker) start(video *Video, args ...string) {
 	defer worker.wg.Done()
+
 	worker.semaphore <- struct{}{}
 	defer func() { <-worker.semaphore }()
-	if err := download(worker.ctx, worker.renderer, video, args...); err != nil {
+
+	if err := download(worker.ctx, video, args...); err != nil {
 
 	}
 }
@@ -135,16 +143,9 @@ func getTitle(ctx context.Context, bin, url string, titleChan chan<- TitleResult
 	}
 }
 
-func download(ctx context.Context, renderer *MutexProgressRender, video *Video, args ...string) error {
+func download(ctx context.Context, video *Video, args ...string) error {
 	args = append(args, video.url)
 	cmd := ytdlpCmd(ctx, video.bin, args...)
-	filtered := NewFilteredWriter(
-		video.name,
-		video.slot,
-		renderer,
-	)
-	cmd.Stdout = filtered
-	cmd.Stderr = filtered
 
 	return cmd.Run()
 }
