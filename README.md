@@ -24,6 +24,6 @@ go build -o ytgo ./cmd
 
 | Flag | Description                                                     |
 | ---: | ---------------------------------------------                   |
-| `Urls to download` | Manual URL input                                  |
 | `Concurrency level` | Number of concurrent downloads (default: `1`)    |
+| `Urls to download` | Manual URL input                                  |
 | `Default directory` | Download directory (default )                    |
