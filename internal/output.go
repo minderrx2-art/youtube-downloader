@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -9,8 +10,14 @@ import (
 
 type VideoStateMessage struct {
 	id       int
-	progress int
-	title    int
+	progress string
+	title    string
+	message  string
+}
+
+type VideoDebug struct {
+	id      int
+	message string
 }
 
 type VideoState struct {
@@ -54,10 +61,17 @@ func (m model) allComplete() bool {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case VideoDebug:
+		state := m.progress[msg.id]
+		state.view = fmt.Sprintf("%s", msg.message)
+		m.progress[msg.id] = state
+
 	case VideoStateMessage:
 		state := m.progress[msg.id]
 
-		state.progress = msg.progress
+		val, _ := strconv.Atoi(msg.progress)
+
+		state.progress = val
 		state.view = fmt.Sprintf("%s - %d%%", msg.title, msg.progress)
 
 		m.progress[msg.id] = state
