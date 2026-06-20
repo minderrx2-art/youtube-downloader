@@ -8,9 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -75,7 +73,6 @@ func RunYTDLPConcurrent(ytdlp *YTDLP, urls []string, cfg Config) error {
 	titles := slices.Collect(maps.Keys(videoMap))
 
 	teaProgram := tea.NewProgram(NewOutput(titles, len(titles)))
-
 	for _, video := range videoMap {
 		wg.Add(1)
 		worker := newWorker(ctx, &wg, semaphore, teaProgram)
@@ -142,7 +139,6 @@ func getTitle(ctx context.Context, bin, url string, titleChan chan<- TitleResult
 
 func (w *Worker) start(video *Video, args ...string) {
 	defer w.wg.Done()
-
 	w.semaphore <- struct{}{}
 	defer func() { <-w.semaphore }()
 
@@ -156,7 +152,7 @@ func (w *Worker) download(ctx context.Context, video *Video, args ...string) err
 
 	cmd := exec.CommandContext(ctx, video.bin, args...)
 
-	stderr, err := cmd.StderrPipe()
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
@@ -165,37 +161,28 @@ func (w *Worker) download(ctx context.Context, video *Video, args ...string) err
 		return err
 	}
 
-	scanner := bufio.NewScanner(stderr)
+	scanner := bufio.NewScanner(stdout)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		fmt.Println(line)
-
-		w.send(VideoDebug{
-			id:      video.slot,
-			message: "segs",
-		})
-
 		if strings.Contains(line, "[download]") {
-			re := regexp.MustCompile(`(\d+(?:\.\d+)?)%`)
-			match := re.FindStringSubmatch(line)
-
-			if len(match) > 1 {
-				pct, _ := strconv.ParseFloat(match[1], 64)
-
-				w.send(VideoStateMessage{
-					id:       video.slot,
-					progress: fmt.Sprintf("%.1f%", pct),
-					message:  video.name,
-				})
-			}
+			w.send(VideoDebug{
+				id:      video.slot,
+				message: line,
+			})
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+
+	w.send(VideoDebug{
+		id:      video.slot,
+		message: fmt.Sprintf("[download] %s - download done", video.name),
+		done:    true,
+	})
 
 	return cmd.Wait()
 }

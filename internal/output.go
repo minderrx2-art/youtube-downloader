@@ -1,29 +1,21 @@
 package internal
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type VideoStateMessage struct {
-	id       int
-	progress string
-	title    string
-	message  string
-}
-
 type VideoDebug struct {
 	id      int
+	done    bool
 	message string
 }
 
 type VideoState struct {
-	id       int
-	progress int
-	view     string
+	id   int
+	done bool
+	view string
 }
 
 type model struct {
@@ -51,7 +43,7 @@ func (m model) Init() tea.Cmd {
 
 func (m model) allComplete() bool {
 	for _, state := range m.progress {
-		if state.progress != 100 {
+		if state.done == false {
 			return false
 		}
 	}
@@ -61,23 +53,14 @@ func (m model) allComplete() bool {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+
 	case VideoDebug:
 		state := m.progress[msg.id]
-		state.view = fmt.Sprintf("%s", msg.message)
+		state.view = msg.message
 		m.progress[msg.id] = state
 
-	case VideoStateMessage:
-		state := m.progress[msg.id]
-
-		val, _ := strconv.Atoi(msg.progress)
-
-		state.progress = val
-		state.view = fmt.Sprintf("%s - %d%%", msg.title, msg.progress)
-
-		m.progress[msg.id] = state
-
-		if m.allComplete() {
-			return m, tea.Quit
+		if msg.done == true {
+			state.done = true
 		}
 
 	case tea.KeyMsg:
@@ -106,9 +89,9 @@ func NewOutput(titles []string, size int) model {
 
 	for i := 0; i < size; i++ {
 		progress[i] = VideoState{
-			id:       i,
-			progress: 0,
-			view:     titles[i],
+			id:   i,
+			done: false,
+			view: titles[i],
 		}
 	}
 
