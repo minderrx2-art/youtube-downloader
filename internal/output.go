@@ -1,32 +1,37 @@
 package internal
 
 import (
+	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type VideoDebug struct {
-	id      int
-	done    bool
-	message string
+	id       int
+	progress string
+	message  string
 }
 
 type VideoState struct {
-	id   int
-	done bool
-	view string
+	id       int
+	progress float64 // 0.0 -> 1.0
+	title    string
+	log      []string
 }
 
 type model struct {
-	progress map[int]VideoState
+	progressBar progress.Model
+	videos      map[int]VideoState
 }
 
 func initStatus(id int, title string) tea.Cmd {
 	return func() tea.Msg {
 		return VideoState{
-			id:   id,
-			view: title,
+			id:    id,
+			title: title,
+			log:   make([]string, 0),
 		}
 	}
 }
@@ -34,16 +39,16 @@ func initStatus(id int, title string) tea.Cmd {
 func (m model) Init() tea.Cmd {
 	var cmds []tea.Cmd
 
-	for id, state := range m.progress {
-		cmds = append(cmds, initStatus(id, state.view))
+	for id, state := range m.videos {
+		cmds = append(cmds, initStatus(id, state.title))
 	}
 
 	return tea.Batch(cmds...)
 }
 
 func (m model) allComplete() bool {
-	for _, state := range m.progress {
-		if state.done == false {
+	for _, state := range m.videos {
+		if state.progress < 1.0 {
 			return false
 		}
 	}
@@ -55,12 +60,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case VideoDebug:
-		state := m.progress[msg.id]
-		state.view = msg.message
-		m.progress[msg.id] = state
+		state := m.videos[msg.id]
 
-		if msg.done == true {
-			state.done = true
+		if msg.message != "" {
+			state := m.videos[msg.id]
+			state.log = append(state.log, msg.message)
+		}
+
+		pct, _ := strconv.ParseFloat(msg.progress, 64)
+		state.progress = pct / 100.0
+
+		m.videos[msg.id] = state
+
+		if m.allComplete() {
+			return m, tea.Quit
 		}
 
 	case tea.KeyMsg:
@@ -76,26 +89,35 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var out strings.Builder
 
-	for i := 0; i < len(m.progress); i++ {
-		out.WriteString(m.progress[i].view)
+	for i := 0; i < len(m.videos); i++ {
+		v := m.videos[i]
+
+		out.WriteString(v.title)
 		out.WriteString("\n")
+
+		out.WriteString(
+			m.progressBar.ViewAs(v.progress),
+		)
+		out.WriteString("\n\n")
 	}
 
 	return out.String()
 }
 
 func NewOutput(titles []string, size int) model {
-	progress := make(map[int]VideoState, size)
+	videos := make(map[int]VideoState, size)
 
+	bar := progress.New()
 	for i := 0; i < size; i++ {
-		progress[i] = VideoState{
-			id:   i,
-			done: false,
-			view: titles[i],
+		videos[i] = VideoState{
+			id:       i,
+			progress: 0,
+			title:    titles[i],
 		}
 	}
 
 	return model{
-		progress: progress,
+		progressBar: bar,
+		videos:      videos,
 	}
 }

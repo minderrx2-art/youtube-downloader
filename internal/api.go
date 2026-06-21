@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -114,6 +115,7 @@ func formatArgs(downPath string) ([]string, error) {
 	args := []string{
 		"-o",
 		filepath.Join(downPath, "%(title)s.%(ext)s"),
+		"--newline",
 		"--progress-template",
 		"%(progress._percent_str)s",
 	}
@@ -141,7 +143,9 @@ func (w *Worker) start(video *Video, args ...string) {
 	defer w.wg.Done()
 	w.semaphore <- struct{}{}
 	defer func() { <-w.semaphore }()
-
+	// Delay to let bubble tea initialize
+	//
+	time.Sleep(100 * time.Millisecond)
 	if err := w.download(w.ctx, video, args...); err != nil {
 
 	}
@@ -149,7 +153,6 @@ func (w *Worker) start(video *Video, args ...string) {
 
 func (w *Worker) download(ctx context.Context, video *Video, args ...string) error {
 	args = append(args, video.url)
-
 	cmd := exec.CommandContext(ctx, video.bin, args...)
 
 	stdout, err := cmd.StdoutPipe()
@@ -162,27 +165,24 @@ func (w *Worker) download(ctx context.Context, video *Video, args ...string) err
 	}
 
 	scanner := bufio.NewScanner(stdout)
-
 	for scanner.Scan() {
-		line := scanner.Text()
-
-		if strings.Contains(line, "[download]") {
-			w.send(VideoDebug{
-				id:      video.slot,
-				message: line,
-			})
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasSuffix(line, "%") {
+			continue
 		}
+
+		pct := strings.TrimSuffix(line, "%")
+
+		w.send(VideoDebug{
+			id:       video.slot,
+			progress: pct,
+			message:  line,
+		})
 	}
 
 	if err := scanner.Err(); err != nil {
 		return err
 	}
-
-	w.send(VideoDebug{
-		id:      video.slot,
-		message: fmt.Sprintf("[download] %s - download done", video.name),
-		done:    true,
-	})
 
 	return cmd.Wait()
 }
