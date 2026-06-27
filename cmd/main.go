@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/url"
 	"os"
 	"os/signal"
 	"regexp"
@@ -17,6 +18,27 @@ type Setup_Result struct {
 	Err    error
 }
 
+func IsYouTubeURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+
+	switch u.Host {
+	case "youtube.com", "www.youtube.com":
+		if u.Path != "/watch" {
+			return false
+		}
+		id := u.Query().Get("v")
+		return len(id) == 11
+
+	case "youtu.be":
+		id := strings.TrimPrefix(u.Path, "/")
+		return len(id) == 11
+	}
+
+	return false
+}
 func main() {
 
 	setupChan := make(chan Setup_Result, 1)
@@ -63,7 +85,9 @@ func main() {
 
 	if cfg.Urls != "" {
 		for _, url := range strings.Split(cfg.Urls, " ") {
-			urls = append(urls, re.ReplaceAllString(url, ""))
+			if IsYouTubeURL(url) {
+				urls = append(urls, re.ReplaceAllString(url, ""))
+			}
 		}
 	} else {
 		urls, err = internal.ReadStdin()
@@ -71,7 +95,9 @@ func main() {
 			return
 		}
 	}
-
+	if len(urls) < 1 {
+		panic("No valid Urls presented")
+	}
 	if err := internal.RunYTDLPConcurrent(ytdlp, urls, cfg); err != nil {
 		return
 	}
