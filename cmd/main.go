@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -58,9 +59,12 @@ func main() {
 	}
 
 	var urls []string
+	re := regexp.MustCompile(`&.*`)
 
 	if cfg.Urls != "" {
-		urls = strings.Split(cfg.Urls, " ")
+		for _, url := range strings.Split(cfg.Urls, " ") {
+			urls = append(urls, re.ReplaceAllString(url, ""))
+		}
 	} else {
 		urls, err = internal.ReadStdin()
 		if err != nil {
