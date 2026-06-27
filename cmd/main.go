@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
 	"ytgo/internal"
 
@@ -41,40 +42,10 @@ func IsYouTubeURL(raw string) bool {
 }
 func main() {
 
-	setupChan := make(chan Setup_Result, 1)
-
-	err := spinner.New().
-		Title("Downloading video...").
-		Action(func() {
-			ytdlp, err := internal.SetupYTDLP()
-			setupChan <- Setup_Result{
-				Result: ytdlp,
-				Err:    err,
-			}
-		}).
-		Run()
-
-	if err != nil {
-		panic("Can't set up YTDLP")
-	}
-
-	setup := <-setupChan
-	ytdlp, err := setup.Result, setup.Err
-
 	cfg, err := internal.PromptConfig()
 	if err != nil {
 		return
 	}
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		os.RemoveAll(ytdlp.DirPath)
-		os.Exit(0)
-	}()
-
-	defer os.RemoveAll(ytdlp.DirPath)
 
 	if err != nil {
 		return
@@ -95,9 +66,44 @@ func main() {
 			return
 		}
 	}
+
 	if len(urls) < 1 {
 		panic("No valid Urls presented")
 	}
+
+	setupChan := make(chan Setup_Result, 1)
+
+	err = spinner.New().
+		Title("downloading libs").
+		Action(func() {
+			ytdlp, err := internal.SetupYTDLP()
+			time.Sleep(200)
+			setupChan <- Setup_Result{
+				Result: ytdlp,
+				Err:    err,
+			}
+		}).
+		Run()
+
+	if err != nil {
+		panic("failed to set up libs")
+	}
+
+	// YTDLP setup
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	setup := <-setupChan
+	ytdlp, err := setup.Result, setup.Err
+
+	go func() {
+		<-sigChan
+		os.RemoveAll(ytdlp.DirPath)
+		os.Exit(0)
+	}()
+
+	defer os.RemoveAll(ytdlp.DirPath)
+
 	if err := internal.RunYTDLPConcurrent(ytdlp, urls, cfg); err != nil {
 		return
 	}
